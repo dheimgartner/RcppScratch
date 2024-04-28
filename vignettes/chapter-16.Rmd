@@ -1,0 +1,84 @@
+---
+title: "Notes on Chapter 16"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{chapter-16}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Subroutine Interfaces; An Interface to C++
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(RcppScratch)
+```
+
+### 16.1 R, Subroutines and C++
+
+>As with the XR interfaces, we would like general server-language computations to be accessible and to allow general R data to be used as arguments or produced as results.
+
+### 16.2 C++ Interface Programming
+
+Three levels:
+1. Create interface to an (existing) C or C++ function (not originally written for use with R).
+2. Interface to an (existing) C++ library.
+3. C++ as the language of choice for a new programming project (potentially interfacing with R - but not only...).
+
+For a nice illustration of 2. see also the `V8` package (https://github.com/jeroen/V8) interfacing Google's V8 engine (C++ library). This example is used to illustrate creating an (embedded) interface, similar to `XRPython` (`reticulate`).
+
+Particular strong points of C++: Simple iterative computations are much faster. Also, vectors that can grow and shrink, without being copied each time. And function evaluation, right?
+
+### 16.3 C++ Functions
+
+For each target C++ function two new functions are generated: 1. a C++ interface function (via the `.Call()` API and argument/return value declaration of type `SEXP`) and 2. an R interface function. These are created by a *setup step* (call to `compileAttributes(pkgdir)`, I think `devtools::load_all()` does this automatically...). Functions can be flagged with `// [Rcpp::export]]` attribute.
+
+Remark: It might be illustrative to study the generated C++ interface functions (e.g. argument conversion to `SEXP`)...
+
+**Example: C++ for R (1.)**
+
+>The conversion to `"NumericVector"` does not copy the R object (the same is true of the underlying `.Call()` interface). Therefore, the target C++ code should not modify any values in the arguments without doing an explicit copy. Otherwise, such changes could corrupt R objects in the calling fuctions. For the basic types `"NumericVector"` and the like, `copy()` should be used before any elements are modified.
+
+**Example: Interfacing to a C++ library (2.)**
+
+Very illustrative! Also showcases the use of an `"externalptr"`: Basically any C++ pointer to an object can be accessed from R by the powerful `Rcpp::Xptr<>` parametrized (template) type. With the C++ v8 library we can set up a "virtual machine" (context object) which is able to evaluate JavaScript. The idea is then to create a pointer to that object and pass it to R. We then can send JavaScript (as string) to this virtual machine!
+
+Again, the source code of the V8 R package (https://github.com/jeroen/V8) can be very illustrative to study.
+
+### 16.4 C++ Classes
+
+>It is possible to define R proxy classes to access the fields and methods of a C++ class (by the `exposeClass()` function in a setup step). Unlike the `compileAttriutes()`, the details about the class are provided in the arguments to `exposeClass()` rather than being inferred from the C++ source. Inherited fields and methods require extra information in the call.
+
+>Explicitly defined members can identified simply by the name of the field or method, but the specification of members **inherited** must include the data type of fields and the data types for the returned value and for the formal arguments of methods.
+
+See `?exposeClass()` to learn about the information needed.
+See the `rcpp-modules` vignette for details.
+
+To experiment with extensions or modifications of the class, one can define a reference class that **contains** (inherits) the proxy class, adding or overriding methods ro fields. However, an R reference class that subclasses a proxy class needs to be defined in a call to `setRefClass()` from a **load action** (since the proxy class it depends on is also defined in a load action). That load action must take place **after** the load action for the proxy class itself (i.e. by relying on alphabetical order or by using an explicit `Collate` directive).
+
+### 16.5 Data Conversion
+
+Two C++ functions defined by templates parametrized by typename:
+
+```C++
+template <typename T> T as( SEXP x);
+template <typename T> SEXP wrap(const T& object);
+```
+
+The first converts from R (internal C++) data type to a regular C++ data type and the latter vice versa. 
+
+Obviously these conversion mechanisms can be extended for new types. Any package using `Rcpp` can extend classes that the package owns by two additions to the **class definition**:
+
+1. Providing a constructor for the class that takes a general R object as its argument (type `"SEXP"`) will enable the generic version of `as()` to work.
+2. Similarly, implementing and declaring a conversion operator to a general `R` object enables the generic `wrap()` to deal with this class; i.e., a method for `operator SEXP()`.
+
+See the `Extending Rcpp` vignette.
+See list of classes provided for (there are also online resources documenting this).
+
+>Objects that are pointers to particular data types can be declared by the `XPtr<T>` parametrized type. `R` has the `"externalptr"` type to hold general pointers or references, but objects of this type have no information about what they point to. The `Rcpp` templated type allows conversion to and from `"externalptr"`!

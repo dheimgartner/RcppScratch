@@ -1,0 +1,1 @@
+dog <- setRcppClass("dog")

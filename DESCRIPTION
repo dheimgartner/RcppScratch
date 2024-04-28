@@ -1,0 +1,18 @@
+Package: RcppScratch
+Type: Package
+Title: Some learnings for wrapping C++ code with Rcpp
+Version: 1.0
+Date: 2024-04-21
+Author: Daniel Heimgartner
+Maintainer: Daniel Heimgartner <d.heimgartners@gmail.com>
+Description: See ?RcppScratch.
+License: GPL (>= 2)
+Encoding: UTF-8
+Imports: Rcpp (>= 1.0.12)
+LinkingTo: Rcpp
+RoxygenNote: 7.3.1
+Roxygen: list(markdown = TRUE)
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
